@@ -1,0 +1,117 @@
+Data Source was r/soccer subreddit
+
+# links used:
+
+https://www.reddit.com/r/soccer/comments/1uabqwn/usa_2_0_australia_alexander_freeman_43/
+
+https://www.reddit.com/r/soccer/comments/1ua6jmw/norways_erling_haaland_is_the_first_player_to/
+
+# The hardest part for labeling came to analysis. For example:
+
+    "same as the US, so clearly we’re not sh*t since we’ve done better than 90% of countries" - was chosen because it was not a reaction or a hot_topic but only boredering on analysis. I had to really think on if it would fit but since there were few analysis posts i had to make do.
+
+    "Not really a fair comparison. When the US won 3rd, there were 13 teams and no 3rd Place match was played - they’re just ranked that way due to a retrospective ranking based on goal difference with Yugoslavia
+
+    Turkey got 3rd place in a 32 team tournament and won the third place game"  -This as a great example of a good analysis post.
+
+    "This game is playing out like the Paraguay one." This also is barely a discernible from hot_topic,reaction or analysis. But the way the sentence is structured made me see it more of as fitting for analysis than reaction.
+
+# Here is a breakdown of how much each label takes up:
+
+reaction: 127 / 222 ≈ 57.2%
+analysis: 45 / 222 ≈ 20.3%
+hot_take: 50 / 222 ≈ 22.5%
+
+# Fine-Tuning Pipeline:
+
+I used "llama-3.3-70b-versatile" via google colab. I used 3 epochs by loading distilbert-base-uncased because it is tuned to work well for small to medium amount of data. Had i had more than 200 rows then it would make sense to use something beyond 3.
+
+# Baseline Comparison:
+
+This was the system prompt I used:
+
+        "You are classifying sports posts from r/soccer.
+        Assign each post to exactly one of the following categories.
+
+        analysis: Posts that explain something with reasoning, context, stats, tactics, or structured argument
+        Example: "City kept overloading the right half-space because Arsenal’s midfield kept shifting too wide. That left space for the inverted fullback to step into midfield and control transitions."
+
+        reaction: A reaction is a short or direct response that expresses emotion, judgment, or instant commentary about a post, event, or moment. It does not explain why something happened, build an argument, or use structured reasoning. It may include slang, humor, or agreement/disagreement, but stays surface-level.
+
+        Example: "I can’t believe he missed that 💀"
+
+        hot_take: Opinionated claims, debates, or ideological pushes without structured evidence (or with selective evidence used to win argument).
+        Example: "People overrate Haaland’s overall game — he scores a lot, but he doesn’t contribute much in build-up play, and that limits him in big matches."
+
+        Respond with ONLY the label name.
+        Do not explain your reasoning.
+
+        Valid labels:
+        analysis
+        reaction
+        hot_take"
+
+# Evaluation report:
+
+    ==================================================
+    RESULTS COMPARISON
+    ==================================================
+    Model                               Accuracy
+    ---------------------------------------------
+    Zero-shot baseline (Groq)              0.697
+    Fine-tuned DistilBERT                  0.576
+    ---------------------------------------------
+
+    Fine-tuning regression: 0.121
+
+    Use these numbers in your README evaluation report.
+
+# Evaluation Report and Error Analysis:
+
+Baseline accuracy: 0.697 (evaluated on 33/33 parseable responses)
+
+Per-class metrics (baseline):
+precision recall f1-score support
+
+    analysis       1.00      0.29      0.44         7
+    hot_take       1.00      0.29      0.44         7
+    reaction       0.66      1.00      0.79        19
+
+    accuracy                           0.70        33
+
+macro avg 0.89 0.52 0.56 33
+weighted avg 0.80 0.70 0.64 33
+
+Confusion Matrix:
+![alt text](image.png)
+
+# 3 wrong predictions analyzed:
+
+--- #1 ---
+Text: Because he had zero impact on the play, him attempting to play the ball isn’t relevant if there’s no impact on the play and there clearly wasn’t.
+True: analysis
+Predicted: reaction (confidence: 0.37)
+
+This is can fit a either reaction or analysis but the reason it got reaction is most likely due to reaction being over represented in the dataset.
+
+--- #2 ---
+Text: In that case by default everyone is evil till proven otherwise. So the threshold for judgement is now whether or not you told the world you're evil. In which case Musk still qualifies.
+True: hot_take
+Predicted: reaction (confidence: 0.37)
+
+Again this is most likely due to reaction being over represented while for the other two i had to really search for good balancing examples.
+
+--- #3 ---
+Text: Since Pru Pru's Puskas contender in 2022.
+True: analysis
+Predicted: reaction (confidence: 0.37)
+
+This one is really neither and to me it highlights how the quality of data is more important than quantity. It means nothing if the data is bad on context.
+
+The gap i am seeing is that getting good source of high quality examples and labeling them to be as obvious as possible as to the label's intent will lead to good outcome. However if the user labels it only to fullfill a quantity criteria than the following predictions will be poor since the examples its trained on are bad.The examples im drawing from are the three above. They are perfect examples.
+
+Predictions with confidence above 0.7 were correct most of the time, while predictions below 0.5 were often incorrect. This suggests the model is weakly calibrated and tends to assign low confidence across most examples which is how 14/33 was achieved during error analysis.
+
+To me the most obvious pattern of the errors was that it kept predicting reaction when the true label was hot take/analysis. That to me tells that reaction is over represented and the other two need more data. Beyond that some of reactionary data has one word comments as I took the 200 posts too literally at first run.
+
+# Confidence Calibration
